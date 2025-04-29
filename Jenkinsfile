@@ -1,43 +1,45 @@
 pipeline {
   agent any
+  options {
+    // Prevent Jenkins from doing an automatic checkout
+    skipDefaultCheckout true
+  }
   environment {
-    // Binds 'dockerhub-credentials' to DOCKERHUB_USR and DOCKERHUB_PSW
+    // Use the Jenkins credential ID for your Docker Hub login
     DOCKERHUB = credentials('dockerhub-credentials')
   }
   stages {
     stage('Checkout') {
       steps {
-        // Clone the repo at the commit that triggered this build
         checkout scm
       }
     }
-    stage('Setup Buildx Builder') {
+    stage('Install Buildx') {
       steps {
-        sh """
-          # Create and switch to an ARM-capable Builder
-          docker buildx create --name arm-builder --driver docker-container --use
-        """
+        sh '''
+          mkdir -p "$HOME/.docker/cli-plugins"
+          curl -sSL \
+            https://github.com/docker/buildx/releases/download/v0.10.4/buildx-v0.10.4.linux-amd64 \
+            -o "$HOME/.docker/cli-plugins/docker-buildx"
+          chmod +x "$HOME/.docker/cli-plugins/docker-buildx"
+          docker buildx version
+          docker buildx create --use
+        '''
       }
     }
-    stage('Build Image') {
+    stage('Build & Push') {
       steps {
-        sh """
-          # Build an ARM64 image and load it into the local Docker store
-          docker buildx build \
-            --platform linux/arm64 \
-            -t saisamarth21/e-commerce:latest \
-            --load .
-        """
-      }
-    }
-    stage('Push Image') {
-      steps {
-        // Log in and push the built image to Docker Hub
         withEnv(["DOCKER_USER=${DOCKERHUB_USR}", "DOCKER_PASS=${DOCKERHUB_PSW}"]) {
-          sh """
+          sh '''
+            # Log in to Docker Hub
             echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
-            docker push saisamarth21/e-commerce:latest
-          """
+
+            # Build and push the ARM64 image in one step
+            docker buildx build \
+              --platform linux/arm64 \
+              -t saisamarth21/e-commerce:latest \
+              --push .
+          '''
         }
       }
     }
