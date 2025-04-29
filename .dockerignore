@@ -1,0 +1,41 @@
+# Docker ignore file
+
+# Node.js dependencies
+node_modules
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Build artifacts
+dist
+dist-ssr
+*.local
+
+# Git and GitHub files
+.git
+.github
+.gitignore
+
+# Editor directories and files
+.vscode
+.idea
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Docker-related files
+Dockerfile
+.dockerignore
+
+# Logs
+logs
+*.log
+
+# Test coverage
+coverage 
