@@ -9,20 +9,21 @@ pipeline {
   }
 
   options {
-    // Explicitly skip any earlier implicit checkout (optional)
+    // Prevent the implicit “checkout Jenkinsfile only”
     skipDefaultCheckout true
   }
 
   stages {
     stage('Checkout') {
       steps {
-        // Check out the exact revision that triggered this build
+        // Clone the full repo at the commit that triggered this build
         checkout scm
       }
     }
 
-    stage('Setup Buildx') {
+    stage('Setup Buildx Builder') {
       steps {
+        // Create & switch to your ARM builder (no-op if exists)
         sh '''
           docker buildx create --name ${BUILDER_NAME} --use || true
         '''
@@ -31,6 +32,7 @@ pipeline {
 
     stage('Build Image') {
       steps {
+        // Build for ARM64 and load into local Docker
         sh '''
           docker buildx build \
             --platform ${PLATFORM} \
@@ -42,6 +44,7 @@ pipeline {
 
     stage('Push Image') {
       steps {
+        // Securely log in and push to Docker Hub
         withCredentials([usernamePassword(
           credentialsId: "${DOCKERHUB_CREDENTIALS}",
           usernameVariable: 'DOCKER_USER',
