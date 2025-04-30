@@ -1,35 +1,57 @@
 pipeline {
-  agent any                                      // Allocate an executor and workspace on any available agent :contentReference[oaicite:6]{index=6}
-  options { skipDefaultCheckout(true) }          // Prevent the automatic SCM checkout :contentReference[oaicite:7]{index=7}
+  agent any
+
+  environment {
+    DOCKERHUB_CREDENTIALS = 'dockerHubCredentials'
+    IMAGE_NAME            = 'saisamarth21/e-commerce:latest'
+    BUILDER_NAME          = 'arm-builder'
+    PLATFORM              = 'linux/arm64'
+  }
+
+  options {
+    // Explicitly skip any earlier implicit checkout (optional)
+    skipDefaultCheckout true
+  }
+
   stages {
     stage('Checkout') {
       steps {
-        // Ensure we're on the latest main
-        sh 'git pull origin main'
+        // Check out the exact revision that triggered this build
+        checkout scm
       }
     }
-    stage('Create Builder') {
+
+    stage('Setup Buildx') {
       steps {
-        // Initialize a new Buildx builder and switch to it
-        sh 'docker buildx create --name arm-builder --use'
+        sh '''
+          docker buildx create --name ${BUILDER_NAME} --use || true
+        '''
       }
     }
-    stage('Use Builder') {
-      steps {
-        // Explicitly select the named builder for subsequent commands
-        sh 'docker buildx use arm-builder'
-      }
-    }
+
     stage('Build Image') {
       steps {
-        // Build for ARM64 and load into local Docker
-        sh 'docker buildx build --platform linux/arm64 -t saisamarth21/e-commerce:latest --load .'
+        sh '''
+          docker buildx build \
+            --platform ${PLATFORM} \
+            -t ${IMAGE_NAME} \
+            --load .
+        '''
       }
     }
+
     stage('Push Image') {
       steps {
-        // Push the freshly built image to Docker Hub
-        sh 'docker push saisamarth21/e-commerce:latest'
+        withCredentials([usernamePassword(
+          credentialsId: "${DOCKERHUB_CREDENTIALS}",
+          usernameVariable: 'DOCKER_USER',
+          passwordVariable: 'DOCKER_PASS'
+        )]) {
+          sh '''
+            echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
+            docker push ${IMAGE_NAME}
+          '''
+        }
       }
     }
   }
