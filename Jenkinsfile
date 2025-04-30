@@ -1,46 +1,35 @@
 pipeline {
-  agent any
-  options {
-    // Prevent Jenkins from doing an automatic checkout
-    skipDefaultCheckout true
-  }
-  environment {
-    // Use the Jenkins credential ID for your Docker Hub login
-    DOCKERHUB = credentials('dockerhub-credentials')
-  }
+  agent any                                      // Allocate an executor and workspace on any available agent :contentReference[oaicite:6]{index=6}
+  options { skipDefaultCheckout(true) }          // Prevent the automatic SCM checkout :contentReference[oaicite:7]{index=7}
   stages {
     stage('Checkout') {
       steps {
-        checkout scm
+        // Ensure we're on the latest main
+        sh 'git pull origin main'
       }
     }
-    stage('Install Buildx') {
+    stage('Create Builder') {
       steps {
-        sh '''
-          mkdir -p "$HOME/.docker/cli-plugins"
-          curl -sSL \
-            https://github.com/docker/buildx/releases/download/v0.10.4/buildx-v0.10.4.linux-amd64 \
-            -o "$HOME/.docker/cli-plugins/docker-buildx"
-          chmod +x "$HOME/.docker/cli-plugins/docker-buildx"
-          docker buildx version
-          docker buildx create --use
-        '''
+        // Initialize a new Buildx builder and switch to it
+        sh 'docker buildx create --name arm-builder --use'
       }
     }
-    stage('Build & Push') {
+    stage('Use Builder') {
       steps {
-        withEnv(["DOCKER_USER=${DOCKERHUB_USR}", "DOCKER_PASS=${DOCKERHUB_PSW}"]) {
-          sh '''
-            # Log in to Docker Hub
-            echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
-
-            # Build and push the ARM64 image in one step
-            docker buildx build \
-              --platform linux/arm64 \
-              -t saisamarth21/e-commerce:latest \
-              --push .
-          '''
-        }
+        // Explicitly select the named builder for subsequent commands
+        sh 'docker buildx use arm-builder'
+      }
+    }
+    stage('Build Image') {
+      steps {
+        // Build for ARM64 and load into local Docker
+        sh 'docker buildx build --platform linux/arm64 -t saisamarth21/e-commerce:latest --load .'
+      }
+    }
+    stage('Push Image') {
+      steps {
+        // Push the freshly built image to Docker Hub
+        sh 'docker push saisamarth21/e-commerce:latest'
       }
     }
   }
