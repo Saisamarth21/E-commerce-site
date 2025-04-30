@@ -6,48 +6,31 @@ pipeline {
     IMAGE_NAME            = 'saisamarth21/e-commerce:latest'
     BUILDER_NAME          = 'arm-builder'
     PLATFORM              = 'linux/arm64'
-    BUILDX_VERSION        = 'v0.23.0'
   }
 
   options {
-    // Prevent the implicit “checkout only Jenkinsfile”
+    // Skip the default “checkout only Jenkinsfile” behavior
     skipDefaultCheckout true
   }
 
   stages {
     stage('Checkout') {
       steps {
+        // Clone the full repo at the commit that triggered this build
         checkout scm
-      }
-    }
-
-    stage('Install Buildx Plugin') {
-      steps {
-        sh '''
-          # Ensure CLI plugins dir exists
-          mkdir -p ~/.docker/cli-plugins
-          # Download the matching binary for Jenkins agent architecture
-          curl -SL https://github.com/docker/buildx/releases/download/${BUILDX_VERSION}/buildx-${BUILDX_VERSION}.linux-amd64 \
-            -o ~/.docker/cli-plugins/docker-buildx
-          chmod +x ~/.docker/cli-plugins/docker-buildx
-
-          # Verify installation
-          docker buildx version
-        '''
       }
     }
 
     stage('Setup Buildx Builder') {
       steps {
-        sh '''
-          # Create or reuse the builder instance
-          docker buildx create --name ${BUILDER_NAME} --use || true
-        '''
+        // Create or reuse your ARM builder instance
+        sh 'docker buildx create --name ${BUILDER_NAME} --use || true'
       }
     }
 
     stage('Build Image') {
       steps {
+        // Build for ARM64 and load locally
         sh '''
           docker buildx build \
             --platform ${PLATFORM} \
@@ -59,6 +42,7 @@ pipeline {
 
     stage('Push Image') {
       steps {
+        // Securely log in and push to Docker Hub
         withCredentials([usernamePassword(
           credentialsId: "${DOCKERHUB_CREDENTIALS}",
           usernameVariable: 'DOCKER_USER',
