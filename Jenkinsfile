@@ -2,54 +2,58 @@ pipeline {
   agent any
 
   environment {
-    DOCKERHUB_CREDENTIALS = 'dockerHubCredentials'
-    IMAGE_NAME            = 'saisamarth21/e-commerce:latest'
-    BUILDER_NAME          = 'arm-builder'
-    PLATFORM              = 'linux/arm64'
-  }
-
-  options {
-    skipDefaultCheckout()     // Disable lightweight checkout
+    // Docker Hub credential ID you already added in Jenkins
+    DOCKER_CREDENTIALS = 'dockerHubCredentials'
+    // Docker image name and registry
+    IMAGE_NAME = 'saisamarth21/e-commerce'
   }
 
   stages {
     stage('Checkout') {
-      steps { checkout scm }
-    }
-
-    stage('Setup Buildx Builder') {
       steps {
-        // Create (or reuse) and select your ARM builder instance
-        sh 'docker buildx create --name ${BUILDER_NAME} --use || true'
+        // Pull latest code from GitHub
+        checkout([$class: 'GitSCM',
+                  branches: [[name: '*/main']],
+                  userRemoteConfigs: [[url: 'https://github.com/Saisamarth21/E-commerce-site.git']]])
       }
     }
 
-    stage('Build Image') {
+    stage('Build Docker Image') {
       steps {
-        // Build for Linux/ARM64 and load into local Docker
-        sh '''
-          docker buildx build \
-            --platform ${PLATFORM} \
-            -t ${IMAGE_NAME} \
-            --load .
-        '''
-      }
-    }
-
-    stage('Push Image') {
-      steps {
-        // Login with Jenkins-stored credentials and push
-        withCredentials([usernamePassword(
-          credentialsId: "${DOCKERHUB_CREDENTIALS}",
-          usernameVariable: 'DOCKER_USER',
-          passwordVariable: 'DOCKER_PASS'
-        )]) {
-          sh '''
-            echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
-            docker push ${IMAGE_NAME}
-          '''
+        script {
+          // Build with a unique build ID tag
+          def img = docker.build("${IMAGE_NAME}:${env.BUILD_ID}")
+          // Also tag as 'latest'
+          img.tag('latest')
         }
       }
+    }
+
+    stage('Push to Docker Hub') {
+      steps {
+        script {
+          // Log in, push both tags, then log out
+          docker.withRegistry('', "${DOCKER_CREDENTIALS}") {
+            docker.image("${IMAGE_NAME}:${env.BUILD_ID}").push()
+            docker.image("${IMAGE_NAME}:latest").push()
+          }
+        }
+      }
+    }
+
+    stage('Cleanup') {
+      steps {
+        // Remove images from the agent to free space
+        sh "docker rmi ${IMAGE_NAME}:${env.BUILD_ID} || true"
+        sh "docker rmi ${IMAGE_NAME}:latest || true"
+      }
+    }
+  }
+
+  post {
+    always {
+      // Optionally archive build logs or notify
+      echo "Build ${env.BUILD_ID} finished."
     }
   }
 }
