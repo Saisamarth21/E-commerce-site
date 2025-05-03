@@ -2,58 +2,59 @@ pipeline {
   agent any
 
   environment {
-    // Docker Hub credential ID you already added in Jenkins
-    DOCKER_CREDENTIALS = 'dockerHubCredentials'
-    // Docker image name and registry
     IMAGE_NAME = 'saisamarth21/e-commerce'
   }
 
   stages {
     stage('Checkout') {
       steps {
-        // Pull latest code from GitHub
-        checkout([$class: 'GitSCM',
-                  branches: [[name: '*/main']],
-                  userRemoteConfigs: [[url: 'https://github.com/Saisamarth21/E-commerce-site.git']]])
+        // Pull the latest code from GitHub
+        checkout scm
       }
     }
 
     stage('Build Docker Image') {
       steps {
-        script {
-          // Build with a unique build ID tag
-          def img = docker.build("${IMAGE_NAME}:${env.BUILD_ID}")
-          // Also tag as 'latest'
-          img.tag('latest')
-        }
+        // Build and tag the image with both build ID and 'latest'
+        sh '''
+          docker build -t $IMAGE_NAME:$BUILD_ID .
+          docker tag $IMAGE_NAME:$BUILD_ID $IMAGE_NAME:latest
+        '''
       }
     }
 
-    stage('Push to Docker Hub') {
+    stage('Docker Login & Push') {
       steps {
-        script {
-          // Log in, push both tags, then log out
-          docker.withRegistry('', "${DOCKER_CREDENTIALS}") {
-            docker.image("${IMAGE_NAME}:${env.BUILD_ID}").push()
-            docker.image("${IMAGE_NAME}:latest").push()
-          }
+        // Use your pre-configured Docker Hub credentials
+        withCredentials([usernamePassword(
+          credentialsId: 'dockerHubCredentials',
+          usernameVariable: 'DOCKER_USER',
+          passwordVariable: 'DOCKER_PASS'
+        )]) {
+          sh '''
+            echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+            docker push $IMAGE_NAME:$BUILD_ID
+            docker push $IMAGE_NAME:latest
+            docker logout
+          '''
         }
       }
     }
 
     stage('Cleanup') {
       steps {
-        // Remove images from the agent to free space
-        sh "docker rmi ${IMAGE_NAME}:${env.BUILD_ID} || true"
-        sh "docker rmi ${IMAGE_NAME}:latest || true"
+        // Free up space on the agent
+        sh '''
+          docker rmi $IMAGE_NAME:$BUILD_ID || true
+          docker rmi $IMAGE_NAME:latest    || true
+        '''
       }
     }
   }
 
   post {
     always {
-      // Optionally archive build logs or notify
-      echo "Build ${env.BUILD_ID} finished."
+      echo "Build ${env.BUILD_ID} completed."
     }
   }
 }
