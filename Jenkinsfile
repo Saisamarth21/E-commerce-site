@@ -1,60 +1,41 @@
 pipeline {
   agent any
-
   environment {
     IMAGE_NAME = 'saisamarth21/e-commerce'
+    REGISTRY_CREDENTIAL = 'DockerCred'
   }
-
   stages {
     stage('Checkout') {
       steps {
-        // Pull the latest code from GitHub
-        checkout scm
+        git url: 'https://github.com/Saisamarth21/E-commerce-site.git', branch: 'main'
       }
     }
-
     stage('Build Docker Image') {
       steps {
-        // Build and tag the image with both build ID and 'latest'
-        sh '''
-          docker build -t $IMAGE_NAME:$BUILD_ID .
-          docker tag $IMAGE_NAME:$BUILD_ID $IMAGE_NAME:latest
-        '''
-      }
-    }
-
-    stage('Docker Login & Push') {
-      steps {
-        // Use your pre-configured Docker Hub credentials
-        withCredentials([usernamePassword(
-          credentialsId: 'dockerHubCredentials',
-          usernameVariable: 'DOCKER_USER',
-          passwordVariable: 'DOCKER_PASS'
-        )]) {
-          sh '''
-            echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
-            docker push $IMAGE_NAME:$BUILD_ID
-            docker push $IMAGE_NAME:latest
-            docker logout
-          '''
+        script {
+          dockerImage = docker.build("${IMAGE_NAME}:latest")
         }
       }
     }
-
-    stage('Cleanup') {
+    stage('Login & Push') {
       steps {
-        // Free up space on the agent
-        sh '''
-          docker rmi $IMAGE_NAME:$BUILD_ID || true
-          docker rmi $IMAGE_NAME:latest    || true
-        '''
+        withCredentials([usernamePassword(
+          credentialsId: "${REGISTRY_CREDENTIAL}", 
+          usernameVariable: 'DOCKER_USER', 
+          passwordVariable: 'DOCKER_PASS'
+        )]) {
+          sh 'echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin'
+          sh "docker tag ${IMAGE_NAME}:latest ${IMAGE_NAME}:${BUILD_NUMBER}"
+          sh "docker push ${IMAGE_NAME}:${BUILD_NUMBER}"
+          sh "docker push ${IMAGE_NAME}:latest"
+        }
       }
     }
-  }
-
-  post {
-    always {
-      echo "Build ${env.BUILD_ID} completed."
+    stage('Cleanup') {
+      steps {
+        sh "docker rmi ${IMAGE_NAME}:latest || true"
+        sh "docker rmi ${IMAGE_NAME}:${BUILD_NUMBER} || true"
+      }
     }
   }
 }
