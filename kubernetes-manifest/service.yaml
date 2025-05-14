@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: ecommerce-service
+  namespace: ecommerce-namespace
+spec:
+  type: NodePort                     # ← change here
+  selector:
+    app: ecommerce
+  ports:
+    - port: 2000                     # service port
+      targetPort: 2000               # container port
+      nodePort: 30002                # externally exposed port
