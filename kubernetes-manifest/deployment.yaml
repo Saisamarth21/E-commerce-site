@@ -20,7 +20,7 @@ spec:
     spec:
       containers:
       - name: ecommerce-container
-        image: saisamarth21/e-commerce:4
+        image: saisamarth21/e-commerce:3
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 2000            # internal port only; no hostPort binding
