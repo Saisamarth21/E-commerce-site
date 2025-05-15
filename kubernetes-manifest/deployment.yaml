@@ -4,7 +4,7 @@ metadata:
   name: ecommerce-deployment
   namespace: ecommerce-namespace
 spec:
-  replicas: 2                        # initial replica count; HPA will adjust between 2–5
+  #replicas: 2                        # initial replica count; HPA will adjust between 2–5
   selector:
     matchLabels:
       app: ecommerce
