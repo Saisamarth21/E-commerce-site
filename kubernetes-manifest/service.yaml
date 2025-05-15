@@ -4,10 +4,10 @@ metadata:
   name: ecommerce-service
   namespace: ecommerce-namespace
 spec:
-  type: NodePort                     # ← change here
+  type: NodePort                   # or omit for default ClusterIP; port‑forward works either way
   selector:
     app: ecommerce
   ports:
-    - port: 2000                     # service port
-      targetPort: 2000               # container port
-      nodePort: 30002                # externally exposed port
+    - port: 2000                   # Service “front door”
+      targetPort: 2000             # matches containerPort
+      nodePort: 30002              # still available if you ever want direct NodePort access

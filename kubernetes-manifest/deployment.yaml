@@ -4,7 +4,7 @@ metadata:
   name: ecommerce-deployment
   namespace: ecommerce-namespace
 spec:
-  replicas: 1
+  replicas: 1                          # initial replica count; HPA will adjust between 2–5
   selector:
     matchLabels:
       app: ecommerce
@@ -18,10 +18,7 @@ spec:
         image: saisamarth21/e-commerce:latest
         imagePullPolicy: IfNotPresent
         ports:
-        - containerPort: 2000
-          hostPort: 2000
-          protocol: TCP
-        # Optional: resource requests/limits
+        - containerPort: 2000          # internal port only; no hostPort binding
         resources:
           requests:
             cpu: "100m"
