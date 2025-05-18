@@ -1,36 +1,53 @@
 pipeline {
   agent any
 
+  tools {
+    // Install Node.js via the NodeJS Plugin
+    nodejs 'NodeJS' 
+  }
+
   environment {
-    // Your Sonar token stored in Jenkins Credentials (Secret text)
+    // Your SonarQube project key
+    SONAR_PROJECT_KEY = 'EcommerceSite'
+    // Look up the SonarQube Scanner installation by name
+    SONAR_SCANNER_HOME = tool 'SonarQubeScanner'
+    // Fetch your token from Jenkins credentials
     SONAR_TOKEN = credentials('Sonar-token')
   }
 
   stages {
-    // … your existing Build/Test stages …
+    stage('Checkout') {
+      steps {
+        git branch: 'main',
+            url: 'https://github.com/Saisamarth21/E-commerce-site.git',
+            // optional: credentialsId: 'github-cred'
+      }
+    }
+
+    stage('Install & Build') {
+      steps {
+        sh 'npm ci'   // installs dependencies
+        sh 'npm run build'
+      }
+    }
 
     stage('SonarQube Analysis') {
       steps {
-        script {
-          // 1. Fetch the SonarScanner installation you defined under
-          //    Manage Jenkins → Global Tool Configuration → SonarQube Scanner
-          def scannerHome = tool name: 'SonarQube-Scanner', type: 'hudson.plugins.sonar.SonarRunnerInstallation'
-          // 2. Inject SONAR_HOST_URL & SONAR_AUTH_TOKEN into env
-          withSonarQubeEnv('SonarQube') {
-            // 3. Run analysis
-            sh """
-              ${scannerHome}/bin/sonar-scanner \
-                -Dsonar.projectKey=EcommerceSite \
-                -Dsonar.sources=src \
-                -Dsonar.host.url=${env.SONAR_HOST_URL} \
-                -Dsonar.login=${env.SONAR_TOKEN}
-            """
-          }
+        // 1. Expose SONAR_HOST_URL & SONAR_AUTH_TOKEN
+        withSonarQubeEnv('SonarQube') {
+          // 2. Run the scanner
+          sh """
+            ${SONAR_SCANNER_HOME}/bin/sonar-scanner \
+              -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
+              -Dsonar.sources=src \
+              -Dsonar.host.url=${env.SONAR_HOST_URL} \
+              -Dsonar.login=${SONAR_TOKEN}
+          """
         }
       }
       post {
         always {
-          // Pause pipeline to wait for Quality Gate result
+          // Wait (up to 5m) for Quality Gate result
           timeout(time: 5, unit: 'MINUTES') {
             waitForQualityGate abortPipeline: true
           }
@@ -40,11 +57,7 @@ pipeline {
   }
 
   post {
-    success {
-      echo "✅ SonarQube analysis passed Quality Gate"
-    }
-    failure {
-      echo "❌ Pipeline failed"
-    }
+    success { echo '✅ Pipeline succeeded & Quality Gate passed' }
+    failure { echo '❌ Pipeline failed — check logs!' }
   }
 }
