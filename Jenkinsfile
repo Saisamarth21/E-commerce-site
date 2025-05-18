@@ -7,12 +7,12 @@ pipeline {
   }
 
   environment {
-    // Your SonarQube project key
+    // SonarQube project key (adjust if you named it differently in SonarQube)
     SONAR_PROJECT_KEY = 'EcommerceSite'
-    // Look up the SonarQube Scanner installation
-    SONAR_SCANNER_HOME = tool 'SonarQubeScanner'
-    // Fetch your Sonar auth token from Credentials
-    SONAR_TOKEN = credentials('Sonar-token')
+    // Look up the Scanner installation named exactly “SonarQube-Scanner”
+    SONAR_SCANNER_HOME = tool 'SonarQube-Scanner'
+    // Fetch your Sonar auth token from Credentials (ID “Sonar-token”)
+    SONAR_TOKEN       = credentials('Sonar-token')
   }
 
   stages {
@@ -20,13 +20,13 @@ pipeline {
       steps {
         // Clone your React–Vite repo
         git branch: 'main',
-            url: 'https://github.com/Saisamarth21/E-commerce-site.git'
+            url:    'https://github.com/Saisamarth21/E-commerce-site.git'
       }
     }
 
-    stage('Build') {
+    stage('Install & Build') {
       steps {
-        // Install deps and build
+        // Install dependencies and build the app
         sh 'npm ci'
         sh 'npm run build'
       }
@@ -34,9 +34,9 @@ pipeline {
 
     stage('SonarQube Analysis') {
       steps {
-        // Inject SONAR_HOST_URL & SONAR_AUTH_TOKEN
+        // Inject SONAR_HOST_URL & SONAR_AUTH_TOKEN from your “SonarQube” server config
         withSonarQubeEnv('SonarQube') {
-          // Run the scanner CLI
+          // Run the Scanner CLI
           sh """
             ${SONAR_SCANNER_HOME}/bin/sonar-scanner \
               -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
@@ -48,7 +48,7 @@ pipeline {
       }
       post {
         always {
-          // Wait up to 5 minutes for Quality Gate
+          // Wait up to 5 minutes for the Quality Gate result
           timeout(time: 5, unit: 'MINUTES') {
             waitForQualityGate abortPipeline: true
           }
@@ -62,7 +62,7 @@ pipeline {
       echo '✅ Pipeline succeeded & Quality Gate passed'
     }
     failure {
-      echo '❌ Pipeline failed — check the logs for details'
+      echo '❌ Pipeline failed — check the logs!'
     }
   }
 }
