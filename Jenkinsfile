@@ -54,7 +54,7 @@ pipeline {
   }
 
   post {
-    success { echo '✅ Pipeline succeeded & Quality Gate passed' }
+    success { echo '✅ Pipeline succeeded & Quality Gate passed!' }
     failure { echo '❌ Pipeline failed — check logs!' }
   }
 }
