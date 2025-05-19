@@ -6,12 +6,13 @@ pipeline {
   }
 
   environment {
-    // keep your existing environment vars
     SONAR_PROJECT_KEY   = 'EcommerceSite'
     SONAR_SCANNER_HOME  = tool 'SonarQube-Scanner'
     SONAR_TOKEN         = credentials('sonar-admin-token')
     OWASP_CLI_HOME      = tool 'OWASP'
-    DOCKER_HUB_REPO     = 'saismarth21/e-commerce'
+
+    // Corrected Docker Hub repo namespace
+    DOCKER_HUB_REPO     = 'saisamarth21/e-commerce'
   }
 
   stages {
@@ -74,7 +75,7 @@ pipeline {
       when { expression { currentBuild.currentResult == 'SUCCESS' } }
       steps {
         script {
-          // Always declare with 'def' to avoid Groovy warnings/memory leaks
+          // Declare with 'def' to avoid Groovy warnings
           def imgTag = "${DOCKER_HUB_REPO}:1.0.${env.BUILD_NUMBER}"
           dockerImage = docker.build(imgTag)
         }
@@ -85,10 +86,9 @@ pipeline {
       when { expression { currentBuild.currentResult == 'SUCCESS' } }
       steps {
         script {
-          // Use blank registry to match your previously working config
           docker.withRegistry('', 'DockerCred') {
-            dockerImage.push()           // push '1.0.${BUILD_NUMBER}'
-            dockerImage.push('latest')   // also push 'latest' tag
+            dockerImage.push()           // pushes 1.0.${BUILD_NUMBER}
+            dockerImage.push('latest')   // also push ‘latest’
           }
         }
       }
