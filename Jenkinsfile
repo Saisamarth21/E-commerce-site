@@ -11,7 +11,7 @@ pipeline {
     SONAR_TOKEN         = credentials('sonar-admin-token')
     OWASP_CLI_HOME      = tool 'OWASP'
 
-    // Corrected Docker Hub repo namespace
+    // Your Docker Hub repo
     DOCKER_HUB_REPO     = 'saisamarth21/e-commerce'
   }
 
@@ -75,21 +75,8 @@ pipeline {
       when { expression { currentBuild.currentResult == 'SUCCESS' } }
       steps {
         script {
-          // Declare with 'def' to avoid Groovy warnings
           def imgTag = "${DOCKER_HUB_REPO}:1.0.${env.BUILD_NUMBER}"
           dockerImage = docker.build(imgTag)
-        }
-      }
-    }
-
-    stage('Push to Docker Hub') {
-      when { expression { currentBuild.currentResult == 'SUCCESS' } }
-      steps {
-        script {
-          docker.withRegistry('', 'DockerCred') {
-            dockerImage.push()           // pushes 1.0.${BUILD_NUMBER}
-            dockerImage.push('latest')   // also push ‘latest’
-          }
         }
       }
     }
@@ -98,6 +85,7 @@ pipeline {
       when { expression { currentBuild.currentResult == 'SUCCESS' } }
       steps {
         script {
+          // Scan the just-built image before pushing
           def imgTag = "${DOCKER_HUB_REPO}:1.0.${env.BUILD_NUMBER}"
           sh """
             trivy \
@@ -116,11 +104,23 @@ pipeline {
         }
       }
     }
+
+    stage('Push to Docker Hub') {
+      when { expression { currentBuild.currentResult == 'SUCCESS' } }
+      steps {
+        script {
+          docker.withRegistry('', 'DockerCred') {
+            // Only push the build-specific tag
+            dockerImage.push()
+          }
+        }
+      }
+    }
   }
 
   post {
     success {
-      echo '✅ Pipeline succeeded & image pushed!'
+      echo '✅ Pipeline succeeded & build-tag image pushed!'
     }
     failure {
       echo '❌ Pipeline failed — check logs!'
