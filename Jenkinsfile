@@ -29,9 +29,7 @@ pipeline {
 
     stage('OWASP Dependency Check') {
       steps {
-        // Wrap everything so any error is caught
         catchError(buildResult: 'SUCCESS', stageResult: 'SUCCESS') {
-          // Run Dependency‑Check (no timeout)
           sh """
             ${OWASP_CLI_HOME}/bin/dependency-check.sh \
               --project "${SONAR_PROJECT_KEY}" \
@@ -40,7 +38,6 @@ pipeline {
               --format HTML \
               --out dependency-check-report
           """
-          // Publish the XML report; errors in here also get caught
           dependencyCheckPublisher(
             pattern: 'dependency-check-report/dependency-check-report.xml',
             stopBuild: false
@@ -68,6 +65,43 @@ pipeline {
         always {
           timeout(time: 5, unit: 'MINUTES') {
             waitForQualityGate abortPipeline: true
+          }
+        }
+      }
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // New: Build & Tag Docker Image
+    // ─────────────────────────────────────────────────────────────
+    stage('Build Docker Image') {
+      when {
+        expression { currentBuild.currentResult == 'SUCCESS' }
+      }
+      steps {
+        script {
+          // Build and tag with build number
+          dockerImage = docker.build(
+            "saisamarth21/e-commerce:1.0.${env.BUILD_NUMBER}"
+          )
+        }
+      }
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // New: Push Image to Docker Hub
+    // ─────────────────────────────────────────────────────────────
+    stage('Push to Docker Hub') {
+      when {
+        expression { currentBuild.currentResult == 'SUCCESS' }
+      }
+      steps {
+        script {
+          // Automatically logs in using the DockerCred credential ID
+          docker.withRegistry('', 'DockerCred') {
+            // Push the tagged image
+            dockerImage.push()
+            // Optionally also push 'latest'
+            dockerImage.push('latest')
           }
         }
       }
