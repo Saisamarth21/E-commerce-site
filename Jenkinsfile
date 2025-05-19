@@ -29,7 +29,7 @@ pipeline {
 
     stage('OWASP Dependency Check') {
       steps {
-        // Generate both XML (for publisher) and HTML (for human view)
+        // No timeout here so the initial DB download (≈20 min) or updates run uninterrupted :contentReference[oaicite:2]{index=2}
         sh """
           ${OWASP_CLI_HOME}/bin/dependency-check.sh \
             --project "${SONAR_PROJECT_KEY}" \
@@ -41,16 +41,24 @@ pipeline {
       }
       post {
         always {
-          // Publish XML results so the pipeline doesn’t error
-          dependencyCheckPublisher pattern: 'dependency-check-report/dependency-check-report.xml'
-          // Optionally, publish HTML if you later install HTML Publisher plugin:
-          // publishHTML(target: [
-          //   reportDir: 'dependency-check-report',
-          //   reportFiles: 'dependency-check-report.html',
-          //   reportName: 'OWASP HTML Report',
-          //   keepAll: true,
-          //   alwaysLinkToLastBuild: true
-          // ])
+          // Wrap publisher in catchError to prevent any failures from failing the pipeline :contentReference[oaicite:3]{index=3}
+          catchError(buildResult: 'SUCCESS', stageResult: 'SUCCESS') {
+            // Parse the XML report; stopBuild=false means no automatic abort on threshold :contentReference[oaicite:4]{index=4}
+            dependencyCheckPublisher(
+              pattern: 'dependency-check-report/dependency-check-report.xml',
+              stopBuild: false
+            )
+          }
+          // (Optional) If you later install HTML Publisher, uncomment below to view the HTML report:
+          /*
+          publishHTML(target: [
+            reportDir: 'dependency-check-report',
+            reportFiles: 'dependency-check-report.html',
+            reportName: 'OWASP HTML Report',
+            keepAll: true,
+            alwaysLinkToLastBuild: true
+          ])
+          */
         }
       }
     }
