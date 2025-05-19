@@ -7,12 +7,12 @@ pipeline {
   }
 
   environment {
-    // Your SonarQube project key
+    // SonarQube settings
     SONAR_PROJECT_KEY   = 'EcommerceSite'
-    // Point at the SonarQube Scanner you configured
     SONAR_SCANNER_HOME  = tool 'SonarQube-Scanner'
-    // Inject your admin-level token
     SONAR_TOKEN         = credentials('sonar-admin-token')
+    // OWASP Dependency‑Check installation
+    OWASP_CLI_HOME      = tool 'OWASP'
   }
 
   stages {
@@ -27,6 +27,35 @@ pipeline {
       steps {
         sh 'npm ci'
         sh 'npm run build'
+      }
+    }
+
+    stage('OWASP Dependency Check') {
+      steps {
+        // Allow up to 30 minutes for the OWASP Dependency-Check (first run ~20m)
+        timeout(time: 30, unit: 'MINUTES') {
+          // Run the CLI scan against the workspace
+          sh """
+            ${OWASP_CLI_HOME}/bin/dependency-check.sh \
+              --project "${SONAR_PROJECT_KEY}" \
+              --scan . \
+              --format HTML \
+              --out dependency-check-report
+          """
+        }
+      }
+      post {
+        always {
+          // Publish the HTML report so it’s visible in the build UI
+          publishHTML([
+            reportDir:      'dependency-check-report',
+            reportFiles:    'dependency-check-report.html',
+            reportName:     'OWASP Dependency‑Check Report',
+            keepAll:        true,
+            alwaysLinkToLastBuild: true,
+            allowMissing:   false
+          ])
+        }
       }
     }
 
