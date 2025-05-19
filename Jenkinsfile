@@ -6,7 +6,7 @@ pipeline {
   }
 
   environment {
-    // Docker Hub repository (must exactly match your Hub namespace)
+    // Docker Hub repository (must match your Hub namespace)
     DOCKER_HUB_REPO     = 'saismarth21/e-commerce'
     SONAR_PROJECT_KEY   = 'EcommerceSite'
     SONAR_SCANNER_HOME  = tool 'SonarQube-Scanner'
@@ -70,13 +70,22 @@ pipeline {
       }
     }
 
-    stage('Build Docker Image') {
+    stage('Build & Push Docker Image') {
       when { expression { currentBuild.currentResult == 'SUCCESS' } }
       steps {
         script {
-          // Define and build a single tag based on the Jenkins build number
-          def imgTag = "${DOCKER_HUB_REPO}:1.0.${env.BUILD_NUMBER}"
-          dockerImage = docker.build(imgTag)
+          // Authenticate to Docker Hub and build & push inside this block :contentReference[oaicite:1]{index=1}
+          docker.withRegistry('https://index.docker.io/v1/', 'DockerCred') {
+            // Tag the image with build number
+            def imgTag = "${DOCKER_HUB_REPO}:1.0.${env.BUILD_NUMBER}"
+            def dockerImage = docker.build(imgTag)
+
+            // Push the build-specific tag
+            dockerImage.push()
+
+            // Optionally also push 'latest'
+            dockerImage.push('latest')
+          }
         }
       }
     }
@@ -100,21 +109,6 @@ pipeline {
       post {
         always {
           archiveArtifacts artifacts: 'trivy-scan-report.txt', fingerprint: true
-        }
-      }
-    }
-
-    stage('Push to Docker Hub') {
-      when {
-        expression { currentBuild.currentResult == 'SUCCESS' }
-      }
-      steps {
-        script {
-          // Automatically logs in using the DockerCred credential ID
-          docker.withRegistry('', 'DockerCred') {
-            // Push the tagged image
-            dockerImage.push()
-          }
         }
       }
     }
