@@ -10,8 +10,6 @@ pipeline {
     SONAR_SCANNER_HOME  = tool 'SonarQube-Scanner'
     SONAR_TOKEN         = credentials('sonar-admin-token')
     OWASP_CLI_HOME      = tool 'OWASP'
-
-    // Your Docker Hub repo
     DOCKER_HUB_REPO     = 'saisamarth21/e-commerce'
   }
 
@@ -85,7 +83,6 @@ pipeline {
       when { expression { currentBuild.currentResult == 'SUCCESS' } }
       steps {
         script {
-          // Scan the just-built image before pushing
           def imgTag = "${DOCKER_HUB_REPO}:1.0.${env.BUILD_NUMBER}"
           sh """
             trivy \
@@ -110,9 +107,18 @@ pipeline {
       steps {
         script {
           docker.withRegistry('', 'DockerCred') {
-            // Only push the build-specific tag
             dockerImage.push()
           }
+        }
+      }
+    }
+
+    stage('Cleanup') {
+      when { expression { currentBuild.currentResult == 'SUCCESS' } }
+      steps {
+        script {
+          def imgTag = "${DOCKER_HUB_REPO}:1.0.${env.BUILD_NUMBER}"
+          sh "docker rmi ${imgTag} || true"
         }
       }
     }
