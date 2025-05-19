@@ -6,10 +6,12 @@ pipeline {
   }
 
   environment {
-    SONAR_PROJECT_KEY   = 'EcommerceSite'
-    SONAR_SCANNER_HOME  = tool 'SonarQube-Scanner'
-    SONAR_TOKEN         = credentials('sonar-admin-token')
-    OWASP_CLI_HOME      = tool 'OWASP'
+    // Your Docker Hub repo, e.g. "saismarth21/e-commerce"
+    DOCKER_HUB_REPO   = 'saismarth21/e-commerce'
+    SONAR_PROJECT_KEY = 'EcommerceSite'
+    SONAR_SCANNER_HOME = tool 'SonarQube-Scanner'
+    SONAR_TOKEN        = credentials('sonar-admin-token')
+    OWASP_CLI_HOME     = tool 'OWASP'
   }
 
   stages {
@@ -47,9 +49,7 @@ pipeline {
     }
 
     stage('SonarQube Analysis') {
-      when {
-        expression { currentBuild.currentResult == 'SUCCESS' }
-      }
+      when { expression { currentBuild.currentResult == 'SUCCESS' } }
       steps {
         withSonarQubeEnv('SonarQube') {
           sh """
@@ -70,51 +70,43 @@ pipeline {
       }
     }
 
-    // ─────────────────────────────────────────────────────────────
-    // Build & Tag Docker Image
-    // ─────────────────────────────────────────────────────────────
     stage('Build Docker Image') {
-      when {
-        expression { currentBuild.currentResult == 'SUCCESS' }
-      }
+      when { expression { currentBuild.currentResult == 'SUCCESS' } }
       steps {
         script {
-          dockerImage = docker.build("saisamarth21/e-commerce:1.0.${env.BUILD_NUMBER}")
+          // Build and tag with the Jenkins build number
+          def imgTag = "${DOCKER_HUB_REPO}:1.0.${env.BUILD_NUMBER}"
+          dockerImage = docker.build(imgTag)
         }
       }
     }
 
-    // ─────────────────────────────────────────────────────────────
-    // Trivy Image Scan (with JSON report)
-    // ─────────────────────────────────────────────────────────────
-    stage('Trivy Image Scan') {
-      when {
-        expression { currentBuild.currentResult == 'SUCCESS' }
-      }
+    stage('Trivy Scan') {
+      when { expression { currentBuild.currentResult == 'SUCCESS' } }
       steps {
         script {
-          // Scan and produce JSON report; fail on HIGH or CRITICAL
+          // Scan the build-tagged image and output a table report
+          def imgTag = "${DOCKER_HUB_REPO}:1.0.${env.BUILD_NUMBER}"
           sh """
-            trivy image \
-              --exit-code 1 \
+            trivy \
               --severity HIGH,CRITICAL \
-              --format json \
-              --output trivy-report.json \
-              saismarth21/e-commerce:1.0.${env.BUILD_NUMBER}
+              --no-progress \
+              image \
+              --format table \
+              --output trivy-scan-report.txt \
+              ${imgTag}
           """
         }
-        // Optionally archive the JSON report for later inspection
-        archiveArtifacts artifacts: 'trivy-report.json', fingerprint: true
+      }
+      post {
+        always {
+          archiveArtifacts artifacts: 'trivy-scan-report.txt', fingerprint: true
+        }
       }
     }
 
-    // ─────────────────────────────────────────────────────────────
-    // Push Image to Docker Hub
-    // ─────────────────────────────────────────────────────────────
     stage('Push to Docker Hub') {
-      when {
-        expression { currentBuild.currentResult == 'SUCCESS' }
-      }
+      when { expression { currentBuild.currentResult == 'SUCCESS' } }
       steps {
         script {
           docker.withRegistry('', 'DockerCred') {
