@@ -105,11 +105,14 @@ pipeline {
     }
 
     stage('Push to Docker Hub') {
-      when { expression { currentBuild.currentResult == 'SUCCESS' } }
+      when {
+        expression { currentBuild.currentResult == 'SUCCESS' }
+      }
       steps {
         script {
-          docker.withRegistry('https://index.docker.io/v1/', 'DockerCred') {
-            // Push only the build-number tag
+          // Automatically logs in using the DockerCred credential ID
+          docker.withRegistry('', 'DockerCred') {
+            // Push the tagged image
             dockerImage.push()
           }
         }
