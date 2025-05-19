@@ -6,12 +6,12 @@ pipeline {
   }
 
   environment {
-    // Your Docker Hub repo, e.g. "saismarth21/e-commerce"
-    DOCKER_HUB_REPO   = 'saismarth21/e-commerce'
-    SONAR_PROJECT_KEY = 'EcommerceSite'
-    SONAR_SCANNER_HOME = tool 'SonarQube-Scanner'
-    SONAR_TOKEN        = credentials('sonar-admin-token')
-    OWASP_CLI_HOME     = tool 'OWASP'
+    // Docker Hub repository (must exactly match your Hub namespace)
+    DOCKER_HUB_REPO     = 'saismarth21/e-commerce'
+    SONAR_PROJECT_KEY   = 'EcommerceSite'
+    SONAR_SCANNER_HOME  = tool 'SonarQube-Scanner'
+    SONAR_TOKEN         = credentials('sonar-admin-token')
+    OWASP_CLI_HOME      = tool 'OWASP'
   }
 
   stages {
@@ -74,7 +74,7 @@ pipeline {
       when { expression { currentBuild.currentResult == 'SUCCESS' } }
       steps {
         script {
-          // Build and tag with the Jenkins build number
+          // Define and build a single tag based on the Jenkins build number
           def imgTag = "${DOCKER_HUB_REPO}:1.0.${env.BUILD_NUMBER}"
           dockerImage = docker.build(imgTag)
         }
@@ -85,7 +85,6 @@ pipeline {
       when { expression { currentBuild.currentResult == 'SUCCESS' } }
       steps {
         script {
-          // Scan the build-tagged image and output a table report
           def imgTag = "${DOCKER_HUB_REPO}:1.0.${env.BUILD_NUMBER}"
           sh """
             trivy \
@@ -109,9 +108,9 @@ pipeline {
       when { expression { currentBuild.currentResult == 'SUCCESS' } }
       steps {
         script {
-          docker.withRegistry('', 'DockerCred') {
+          docker.withRegistry('https://index.docker.io/v1/', 'DockerCred') {
+            // Push only the build-number tag
             dockerImage.push()
-            dockerImage.push('latest')
           }
         }
       }
@@ -120,7 +119,7 @@ pipeline {
 
   post {
     success {
-      echo '✅ Pipeline succeeded & Quality Gate passed!'
+      echo '✅ Pipeline succeeded & image pushed with build number tag!'
     }
     failure {
       echo '❌ Pipeline failed — check logs!'
