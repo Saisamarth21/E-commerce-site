@@ -6,12 +6,12 @@ pipeline {
   }
 
   environment {
-    // Docker Hub repository (must match your Hub namespace)
-    DOCKER_HUB_REPO     = 'saismarth21/e-commerce'
+    // keep your existing environment vars
     SONAR_PROJECT_KEY   = 'EcommerceSite'
     SONAR_SCANNER_HOME  = tool 'SonarQube-Scanner'
     SONAR_TOKEN         = credentials('sonar-admin-token')
     OWASP_CLI_HOME      = tool 'OWASP'
+    DOCKER_HUB_REPO     = 'saismarth21/e-commerce'
   }
 
   stages {
@@ -70,21 +70,25 @@ pipeline {
       }
     }
 
-    stage('Build & Push Docker Image') {
+    stage('Build Docker Image') {
       when { expression { currentBuild.currentResult == 'SUCCESS' } }
       steps {
         script {
-          // Authenticate to Docker Hub and build & push inside this block :contentReference[oaicite:1]{index=1}
-          docker.withRegistry('https://index.docker.io/v1/', 'DockerCred') {
-            // Tag the image with build number
-            def imgTag = "${DOCKER_HUB_REPO}:1.0.${env.BUILD_NUMBER}"
-            def dockerImage = docker.build(imgTag)
+          // Always declare with 'def' to avoid Groovy warnings/memory leaks
+          def imgTag = "${DOCKER_HUB_REPO}:1.0.${env.BUILD_NUMBER}"
+          dockerImage = docker.build(imgTag)
+        }
+      }
+    }
 
-            // Push the build-specific tag
-            dockerImage.push()
-
-            // Optionally also push 'latest'
-            dockerImage.push('latest')
+    stage('Push to Docker Hub') {
+      when { expression { currentBuild.currentResult == 'SUCCESS' } }
+      steps {
+        script {
+          // Use blank registry to match your previously working config
+          docker.withRegistry('', 'DockerCred') {
+            dockerImage.push()           // push '1.0.${BUILD_NUMBER}'
+            dockerImage.push('latest')   // also push 'latest' tag
           }
         }
       }
@@ -116,7 +120,7 @@ pipeline {
 
   post {
     success {
-      echo '✅ Pipeline succeeded & image pushed with build number tag!'
+      echo '✅ Pipeline succeeded & image pushed!'
     }
     failure {
       echo '❌ Pipeline failed — check logs!'
