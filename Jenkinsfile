@@ -71,7 +71,7 @@ pipeline {
     }
 
     // ─────────────────────────────────────────────────────────────
-    // New: Build & Tag Docker Image
+    // Build & Tag Docker Image
     // ─────────────────────────────────────────────────────────────
     stage('Build Docker Image') {
       when {
@@ -79,16 +79,37 @@ pipeline {
       }
       steps {
         script {
-          // Build and tag with build number
-          dockerImage = docker.build(
-            "saisamarth21/e-commerce:1.0.${env.BUILD_NUMBER}"
-          )
+          dockerImage = docker.build("saisamarth21/e-commerce:1.0.${env.BUILD_NUMBER}")
         }
       }
     }
 
     // ─────────────────────────────────────────────────────────────
-    // New: Push Image to Docker Hub
+    // Trivy Image Scan (with JSON report)
+    // ─────────────────────────────────────────────────────────────
+    stage('Trivy Image Scan') {
+      when {
+        expression { currentBuild.currentResult == 'SUCCESS' }
+      }
+      steps {
+        script {
+          // Scan and produce JSON report; fail on HIGH or CRITICAL
+          sh """
+            trivy image \
+              --exit-code 1 \
+              --severity HIGH,CRITICAL \
+              --format json \
+              --output trivy-report.json \
+              saismarth21/e-commerce:1.0.${env.BUILD_NUMBER}
+          """
+        }
+        // Optionally archive the JSON report for later inspection
+        archiveArtifacts artifacts: 'trivy-report.json', fingerprint: true
+      }
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Push Image to Docker Hub
     // ─────────────────────────────────────────────────────────────
     stage('Push to Docker Hub') {
       when {
@@ -96,11 +117,8 @@ pipeline {
       }
       steps {
         script {
-          // Automatically logs in using the DockerCred credential ID
           docker.withRegistry('', 'DockerCred') {
-            // Push the tagged image
             dockerImage.push()
-            // Optionally also push 'latest'
             dockerImage.push('latest')
           }
         }
