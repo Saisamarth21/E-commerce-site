@@ -10,7 +10,7 @@ pipeline {
     SONAR_SCANNER_HOME  = tool 'SonarQube-Scanner'
     SONAR_TOKEN         = credentials('sonar-admin-token')
     OWASP_CLI_HOME      = tool 'OWASP'
-    DOCKER_HUB_REPO     = 'saisamarth2/e-commerce'
+    DOCKER_HUB_REPO     = 'saisamarth21/e-commerce'
   }
 
   stages {
