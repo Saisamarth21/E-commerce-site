@@ -124,28 +124,48 @@ pipeline {
     }
   }
 
-  // ← ADD THIS WHOLE post { … } BLOCK BELOW
   post {
-    always {
-      script {
-        // Build status (SUCCESS, FAILURE, UNSTABLE, ABORTED)
-        def buildStatus = currentBuild.currentResult ?: 'UNKNOWN'
-        // Provide direct link to site under test
-        def siteUrl = 'https://test.saisamarth.duckdns.org/'
-        // Email subject and body
-        emailext(
-          to:      'saisamarthu@gmail.com',
-          subject: "[Jenkins][${buildStatus}] ${currentBuild.fullDisplayName}",
-          body: """
-            <p>Hi Saisamarth,</p>
-            <p>Your Jenkins build <b>${currentBuild.fullDisplayName}</b> has completed with status: <b>${buildStatus}</b>.</p>
-            <p>• <a href='${env.BUILD_URL}'>Console Output</a><br/>
-               • <a href='${siteUrl}'>Live Site</a></p>
-            <p>Thanks,<br/>Jenkins</p>
-          """,
-          mimeType: 'text/html'
-        )
-      }
+    success {
+      // Send a success email with build details and site link
+      emailext(
+        attachLog: true,
+        from:    'saisamarth2104@gmail.com',
+        to:      'saisamarthu@gmail.com',
+        subject: "✅ Build #${env.BUILD_NUMBER} of ${env.JOB_NAME} Succeeded",
+        mimeType: 'text/html',
+        body: """
+          <html>
+            <body>
+              <h2 style="color: green;">Build Succeeded!</h2>
+              <p><strong>Project:</strong> ${env.JOB_NAME}</p>
+              <p><strong>Build Number:</strong> ${env.BUILD_NUMBER}</p>
+              <p><strong>Build URL:</strong> <a href="${env.BUILD_URL}">${env.BUILD_URL}</a></p>
+              <p><strong>Preview Site:</strong> <a href="https://test.saisamarth.duckdns.org/">https://test.saisamarth.duckdns.org/</a></p>
+            </body>
+          </html>
+        """
+      )
+    }
+    failure {
+      // Send a failure email with build details
+      emailext(
+        attachLog: true,
+        from:    'saisamarth2104@gmail.com',
+        to:      'saisamarthu@gmail.com',
+        subject: "❌ Build #${env.BUILD_NUMBER} of ${env.JOB_NAME} Failed",
+        mimeType: 'text/html',
+        body: """
+          <html>
+            <body>
+              <h2 style="color: red;">Build Failed!</h2>
+              <p><strong>Project:</strong> ${env.JOB_NAME}</p>
+              <p><strong>Build Number:</strong> ${env.BUILD_NUMBER}</p>
+              <p><strong>Build URL:</strong> <a href="${env.BUILD_URL}">${env.BUILD_URL}</a></p>
+              <p>Please review the console output and logs for more details.</p>
+            </body>
+          </html>
+        """
+      )
     }
   }
 }
