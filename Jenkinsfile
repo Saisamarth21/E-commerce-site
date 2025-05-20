@@ -126,10 +126,10 @@ pipeline {
 
   post {
     success {
-      // Send a success email with build details and site link
       emailext(
         attachLog: true,
-        from:    'saisamarth2104@gmail.com',
+        attachmentsPattern: 'dependency-check-report/*.html, dependency-check-report/*.xml, trivy-scan-report.txt',
+        from:    'saisamarthu@gmail.com',
         to:      'saisamarthu@gmail.com',
         subject: "✅ Build #${env.BUILD_NUMBER} of ${env.JOB_NAME} Succeeded",
         mimeType: 'text/html',
@@ -147,10 +147,10 @@ pipeline {
       )
     }
     failure {
-      // Send a failure email with build details
       emailext(
         attachLog: true,
-        from:    'saisamarth2104@gmail.com',
+        attachmentsPattern: 'dependency-check-report/*.html, dependency-check-report/*.xml, trivy-scan-report.txt',
+        from:    'saisamarthu@gmail.com',
         to:      'saisamarthu@gmail.com',
         subject: "❌ Build #${env.BUILD_NUMBER} of ${env.JOB_NAME} Failed",
         mimeType: 'text/html',
@@ -161,7 +161,7 @@ pipeline {
               <p><strong>Project:</strong> ${env.JOB_NAME}</p>
               <p><strong>Build Number:</strong> ${env.BUILD_NUMBER}</p>
               <p><strong>Build URL:</strong> <a href="${env.BUILD_URL}">${env.BUILD_URL}</a></p>
-              <p>Please review the console output and logs for more details.</p>
+              <p>Please review the console output and attached reports for details.</p>
             </body>
           </html>
         """
