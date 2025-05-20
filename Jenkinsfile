@@ -124,12 +124,28 @@ pipeline {
     }
   }
 
+  // ← ADD THIS WHOLE post { … } BLOCK BELOW
   post {
-    success {
-      echo '✅ Pipeline succeeded & build-tag image pushed!'
-    }
-    failure {
-      echo '❌ Pipeline failed — check logs!'
+    always {
+      script {
+        // Build status (SUCCESS, FAILURE, UNSTABLE, ABORTED)
+        def buildStatus = currentBuild.currentResult ?: 'UNKNOWN'
+        // Provide direct link to site under test
+        def siteUrl = 'https://test.saisamarth.duckdns.org/'
+        // Email subject and body
+        emailext(
+          to:      'saisamarthu@gmail.com',
+          subject: "[Jenkins][${buildStatus}] ${currentBuild.fullDisplayName}",
+          body: """
+            <p>Hi Saisamarth,</p>
+            <p>Your Jenkins build <b>${currentBuild.fullDisplayName}</b> has completed with status: <b>${buildStatus}</b>.</p>
+            <p>• <a href='${env.BUILD_URL}'>Console Output</a><br/>
+               • <a href='${siteUrl}'>Live Site</a></p>
+            <p>Thanks,<br/>Jenkins</p>
+          """,
+          mimeType: 'text/html'
+        )
+      }
     }
   }
 }
