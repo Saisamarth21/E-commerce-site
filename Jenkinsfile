@@ -116,36 +116,41 @@ pipeline {
     stage('Commit K8s Manifest') {
       when { expression { currentBuild.currentResult == 'SUCCESS' } }
       steps {
-        script {
-          // 1) Define the new image tag
-          def newTag = "${DOCKER_HUB_REPO}:1.0.${env.BUILD_NUMBER}"
 
-          // 2) Clone the manifests repo (public read, credential only for push)
-          checkout([
-            $class: 'GitSCM',
-            branches: [[ name: '*/main' ]],
-            userRemoteConfigs: [[
-              url:           'https://github.com/Saisamarth21/Kubernetes-Manifest-Files.git',
-              credentialsId: 'GitHubCred'
-            ]]
-          ])
+        // wrap in sshagent so pushes use the SSH key in GitHubCred
+        sshagent(['GitHubCred']) {
+          script {
+            def newTag = "${DOCKER_HUB_REPO}:1.0.${env.BUILD_NUMBER}"
 
-          // 3) Update deployment.yaml's image line in-place
-          sh """
-            sed -i 's#^\\s*image:.*#        image: ${newTag}#' \
-            K8s-ecommerce-site/deployment.yaml
-          """
+            // 1) Clone via SSH and force a local 'main' branch
+            checkout([
+              $class: 'GitSCM',
+              branches: [[ name: '*/main' ]],
+              userRemoteConfigs: [[
+                url:           'git@github.com:Saisamarth21/Kubernetes-Manifest-Files.git',
+                credentialsId: 'GitHubCred'
+              ]],
+              extensions: [
+                // ensure we get a local branch named 'main' to push to
+                [$class: 'LocalBranch', localBranch: 'main']
+              ]
+            ])
 
-          // 4) Configure Git user for the commit
-          sh 'git config user.email "jenkins@your.domain"'
-          sh 'git config user.name  "Jenkins CI"'
+            // 2) Update the image: line in-place
+            sh """
+              sed -i 's#^\\s*image:.*#        image: ${newTag}#' \
+              K8s-ecommerce-site/deployment.yaml
+            """
 
-          // 5) Commit & push the change
-          sh """
-            git add K8s-ecommerce-site/deployment.yaml
-            git commit -m "chore(k8s): bump ecommerce image to ${newTag}"
-            git push origin main
-          """
+            // 3) Commit & push
+            sh '''
+              git config user.email "jenkins@your.domain"
+              git config user.name  "Jenkins CI"
+              git add K8s-ecommerce-site/deployment.yaml
+              git commit -m "chore(k8s): bump ecommerce image to ${newTag}"
+              git push origin main
+            '''
+          }
         }
       }
     }
