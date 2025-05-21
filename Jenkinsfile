@@ -145,7 +145,7 @@ pipeline {
               git config user.name  "Jenkins CI"
               git remote set-url origin https://${GIT_USER}:${GIT_PAT}@github.com/Saisamarth21/Kubernetes-Manifest-Files.git
               git add K8s-ecommerce-site/deployment.yaml
-              git commit -m "chore(k8s): bump ecommerce image to ''' + newTag + '''"
+              git commit -m "Updated image to ''' + newTag + '''"
               git push origin main
             '''
           }
