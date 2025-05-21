@@ -113,6 +113,43 @@ pipeline {
       }
     }
 
+    stage('Commit K8s Manifest') {
+      when { expression { currentBuild.currentResult == 'SUCCESS' } }
+      steps {
+        script {
+          // 1) Define the new image tag
+          def newTag = "${DOCKER_HUB_REPO}:1.0.${env.BUILD_NUMBER}"
+
+          // 2) Clone the manifests repo (public read, credential only for push)
+          checkout([
+            $class: 'GitSCM',
+            branches: [[ name: '*/main' ]],
+            userRemoteConfigs: [[
+              url:           'https://github.com/Saisamarth21/Kubernetes-Manifest-Files.git',
+              credentialsId: 'GitHubCred'
+            ]]
+          ])
+
+          // 3) Update deployment.yaml's image line in-place
+          sh """
+            sed -i 's#^\\s*image:.*#        image: ${newTag}#' \
+            K8s-ecommerce-site/deployment.yaml
+          """
+
+          // 4) Configure Git user for the commit
+          sh 'git config user.email "jenkins@your.domain"'
+          sh 'git config user.name  "Jenkins CI"'
+
+          // 5) Commit & push the change
+          sh """
+            git add K8s-ecommerce-site/deployment.yaml
+            git commit -m "chore(k8s): bump ecommerce image to ${newTag}"
+            git push origin main
+          """
+        }
+      }
+    }
+
     stage('Cleanup') {
       when { expression { currentBuild.currentResult == 'SUCCESS' } }
       steps {

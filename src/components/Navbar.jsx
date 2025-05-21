@@ -14,7 +14,7 @@ export default function Navbar({
   return (
     <nav className="bg-white shadow px-4 py-2 flex items-center justify-between">
       {/* Brand */}
-      <span className="text-xl font-bold">E-Commerce App - Trivy Check and Email Check</span>
+      <span className="text-xl font-bold">E-Commerce App - Trivy Check and Email Check and Manifest Updated</span>
 
       {/* Right Side: Search, Wishlist, Cart */}
       <div className="flex items-center space-x-4">
